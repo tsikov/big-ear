@@ -8,8 +8,8 @@
   :description  "Fetch market data and store in db"
   :author       "Petko Tsikov <tsikov@gmail.com>"
   :serial       t
-  :license      "MIT"
-  :depends-on   (#:drakma)
+  :license      ""
+  :depends-on   (#:drakma #:cl-json)
   :components   ((:module "src"
                           :components
                           ((:file "big-ear"))))
@@ -18,8 +18,8 @@
 (defsystem #:big-ear-test
   :description "Fetch market data and store in db test system"
   :author "Petko Tsikov <tsikov@gmail.com>"
-  :license "MIT"
-  :depends-on (#:prove)
+  :license ""
+  :depends-on (#:prove #:vcr)
   :defsystem-depends-on (#:prove-asdf)
   :serial t
   :components ((:module "t"
