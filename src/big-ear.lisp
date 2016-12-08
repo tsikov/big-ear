@@ -12,10 +12,33 @@
          :test 'equal)
 
 (defparameter +uri+ "https://api.kraken.com/0/public/")
+(defparameter +pairs+ '(btcusd ethusd))
+(defparameter request-pause-in-seconds 5)
+(defparameter +storage-directory+
+  (asdf:system-relative-pathname :big-ear :storage/))
+(defparameter +pairs+ '(:xbtusd :xbteur :xbtgbp :xbtjpy ; btc
+                        :ethxbt :ethusd :etheur :ethgbp ; eth
+                        :ltcxbt :ltcusd :ltceur         ; ltc
+                        :repxbt :repusd :repeur))       ; rep
+
+(defun storage-path (pair)
+  "Returns the full path of the storage file"
+  (string-downcase
+   (format nil "~A~A.lisp" +storage-directory+ pair)))
 
 (defstruct (ticker (:type list))
-  pair ask bid last volume volume/24h volume-wa
+  pair timestamp ask bid last volume volume/24h volume-wa
   volume-wa/24h n-trades n-trades/24h low low/24h high high/24h open)
+
+(defvar *unix-epoch-difference*
+  (encode-universal-time 0 0 0 1 1 1970 0))
+
+(defun universal-to-unix-time (universal-time)
+  (- universal-time *unix-epoch-difference*))
+
+(defun get-unix-time ()
+  "Returns UNIX timestamp. SoundWaves and Alien Sea use it for compatibility with the underlying OS."
+  (universal-to-unix-time (get-universal-time)))
 
 (defun ensure-number (str/num)
   "Ensure item is a number"
@@ -43,7 +66,7 @@
                     (:high          :h second)
                     (:high/24h      :h third)
                     (:open          :b second))))
-    
+
     (destructuring-bind (_ key pos)
         (assoc indicator bindings)
       (declare (ignore _))
@@ -52,8 +75,25 @@
 
 (defun kraken->be (list)
   "map kraken symbols to big ear symbols"
-  (let ((bindings '((:+xxbtzusd+ . :btcusd)
-                    (:+xethzusd+ . :ethusd))))
+  (let ((bindings '(;; btc
+                    (:+xxbtzusd+ . :xbtusd)
+                    (:+xxbtzeur+ . :xbteur)
+                    (:+xxbtzgbp+ . :xbtgbp)
+                    (:+xxbtzjpy+ . :xbtjpy)
+                    ;; eth
+                    (:+xethxxbt+ . :ethxbt) ; btc
+                    (:+xethzusd+ . :ethusd) 
+                    (:+xethzeur+ . :etheur)
+                    (:+xethzgbp+ . :ethgbp)
+                    (:+xethzjpy+ . :ethjpy)
+                    ;; ltc
+                    (:+xltcxxbt+ . :ltcxbt) ; btc
+                    (:+xltczusd+ . :ltcusd)
+                    (:+xltczeur+ . :ltceur)
+                    ;; REP
+                    (:+xrepxxbt+ . :repxbt) ; btc
+                    (:+xrepzusd+ . :repusd)
+                    (:+xrepzeur+ . :repeur))))
     (sublis bindings list)))
 
 (defun get-error (response)
@@ -73,32 +113,51 @@
         (error "Kraken said: ~A" error)
         result)))
 
-(defun handle-ticker-response (response)
-  "Substitute symbols from ticker response with ones suitable for
-Big Ear."
-  (kraken-be (handle-response response)))
-
 (defun request (uri)
   "Make an HTTP request"
   (handle-response (drakma:http-request uri)))
 
-(defun ticker (pair)
+(defun ticker (pairs)
   "Ticker data"
-  (let* ((full-url (format nil "~A~A~A" +uri+ "Ticker?pair=" pair))
+  (let* ((full-url (format nil "~A~A~A" +uri+ "Ticker?pair=" pairs))
          (response (kraken->be (request full-url))))
     (loop for (pair . pair-data) in response
-         collect (make-ticker :pair pair
-                              :ask (get-info pair-data :ask)
-                              :bid (get-info pair-data :bid)
-                              :last (get-info pair-data :last)
-                              :volume (get-info pair-data :volume)
-                              :volume/24h (get-info pair-data :volume/24h)
-                              :volume-wa (get-info pair-data :volume-wa)
-                              :volume-wa/24h (get-info pair-data :volume-wa/24h)
-                              :n-trades (get-info pair-data :n-trades)
-                              :n-trades/24h (get-info pair-data :n-trades/24h)
-                              :low (get-info pair-data :low)
-                              :low/24h (get-info pair-data :low/24h)
-                              :high (get-info pair-data :high)
-                              :high/24h (get-info pair-data :high/24h)
-                              :open (get-info pair-data :open)))))
+       collect (make-ticker
+                :pair pair
+                :timestamp (get-unix-time)
+                :ask (get-info pair-data :ask)
+                :bid (get-info pair-data :bid)
+                :last (get-info pair-data :last)
+                :volume (get-info pair-data :volume)
+                :volume/24h (get-info pair-data :volume/24h)
+                :volume-wa (get-info pair-data :volume-wa)
+                :volume-wa/24h (get-info pair-data :volume-wa/24h)
+                :n-trades (get-info pair-data :n-trades)
+                :n-trades/24h (get-info pair-data :n-trades/24h)
+                :low (get-info pair-data :low)
+                :low/24h (get-info pair-data :low/24h)
+                :high (get-info pair-data :high)
+                :high/24h (get-info pair-data :high/24h)
+                :open (get-info pair-data :open)))))
+
+(defun list-to-comma-list (list)
+  "Convert an ordinary list to a comma seprarated list as a string"
+  (format nil "~{~A~^,~}" list))
+
+(defun save-record-to-file (pair ticker-data)
+  "Save a record to a file given a pair symbol"
+  (with-open-file (s (storage-path pair)
+                     :direction :output
+                     :if-exists :append
+                     :if-does-not-exist :create)
+    (format s "~A~%" (rest (assoc pair ticker-data)))))
+
+(defun start ()
+  "Start fetching data"
+  (loop
+     (let ((ticker-data (ticker (list-to-comma-list +pairs+))))
+       (mapcar #'(lambda (pair)
+                   (save-record-to-file pair ticker-data))
+               +pairs+)
+       (print (get-unix-time))
+     (sleep request-pause-in-seconds))))
