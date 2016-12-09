@@ -1,6 +1,6 @@
 (in-package #:cl-user)
 (defpackage #:be.test
-  (:use #:cl #:big-ear #:prove #:vcr))
+  (:use #:cl #:prove #:vcr))
 (in-package #:be.test)
 
 (setf prove:*enable-colors* t)
@@ -16,8 +16,7 @@
           "Can make an API request")))
 
   (subtest "TICKER"
-    (let ((ticker (ticker "xbtusd,ethusd")))
-      (print ticker)
+    (let ((ticker (be::ticker "xbtusd,ethusd")))
       (is (type-of ticker) 'cons
           "Ticker data can be obtained via API")))
 

@@ -2,7 +2,8 @@
 (defpackage #:big-ear
   (:nicknames :be)
   (:use #:cl)
-  (:export #:ticker))
+  (:export #:start
+           #:get-table-stream))
 (in-package #:big-ear)
 
 ;; make it possible for drakma to get json response as text
@@ -26,6 +27,13 @@
   (string-downcase
    (format nil "~A~A.lisp" +storage-directory+ pair)))
 
+(defun get-table-stream (pair)
+  "Load a file given a pair"
+  (with-open-file (stream (storage-path pair)
+                     :direction :input
+                     :if-does-not-exist :error)
+    stream))
+
 (defstruct (ticker (:type list))
   pair timestamp ask bid last volume volume/24h volume-wa
   volume-wa/24h n-trades n-trades/24h low low/24h high high/24h open)
@@ -37,7 +45,7 @@
   (- universal-time *unix-epoch-difference*))
 
 (defun get-unix-time ()
-  "Returns UNIX timestamp. SoundWaves and Alien Sea use it for compatibility with the underlying OS."
+  "Returns UNIX timestamp. Sound Waves and Alien Sea use it for compatibility with the underlying OS."
   (universal-to-unix-time (get-universal-time)))
 
 (defun ensure-number (str/num)
