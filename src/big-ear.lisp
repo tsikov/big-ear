@@ -13,7 +13,7 @@
          :test 'equal)
 
 (defparameter +uri+ "https://api.kraken.com/0/public/")
-(defparameter request-pause-in-seconds 50)
+(defparameter request-pause-in-seconds 5)
 (defparameter +kraken-pairs+ '(:xbtusd :xbteur :xbtgbp :xbtjpy ; btc
                                :ethxbt :ethusd :etheur :ethgbp ; eth
                                :ltcxbt :ltcusd :ltceur         ; ltc
