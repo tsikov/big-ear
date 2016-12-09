@@ -3,7 +3,7 @@
   (:nicknames :be)
   (:use #:cl)
   (:export #:start
-           #:get-table-stream))
+           #:get-pair-stream))
 (in-package #:big-ear)
 
 ;; make it possible for drakma to get json response as text
@@ -13,21 +13,27 @@
          :test 'equal)
 
 (defparameter +uri+ "https://api.kraken.com/0/public/")
-(defparameter +pairs+ '(btcusd ethusd))
-(defparameter request-pause-in-seconds 5)
+(defparameter request-pause-in-seconds 50)
+(defparameter +kraken-pairs+ '(:xbtusd :xbteur :xbtgbp :xbtjpy ; btc
+                               :ethxbt :ethusd :etheur :ethgbp ; eth
+                               :ltcxbt :ltcusd :ltceur         ; ltc
+                               :repxbt :repusd :repeur)        ; rep
+  "needed for easy constuction of ticker URL. Also as a refference")
+
+(defparameter +pairs+ '(:btcusd :btceur :btcgbp :btcjpy ; btc
+                        :ethbtc :ethusd :etheur :ethgbp ; eth
+                        :ltcbtc :ltcusd :ltceur         ; ltc
+                        :repbtc :repusd :repeur))       ; rep
+
 (defparameter +storage-directory+
   (asdf:system-relative-pathname :big-ear :storage/))
-(defparameter +pairs+ '(:xbtusd :xbteur :xbtgbp :xbtjpy ; btc
-                        :ethxbt :ethusd :etheur :ethgbp ; eth
-                        :ltcxbt :ltcusd :ltceur         ; ltc
-                        :repxbt :repusd :repeur))       ; rep
 
 (defun storage-path (pair)
   "Returns the full path of the storage file"
   (string-downcase
    (format nil "~A~A.lisp" +storage-directory+ pair)))
 
-(defun get-table-stream (pair)
+(defun get-pair-stream (pair)
   "Load a file given a pair"
   (with-open-file (stream (storage-path pair)
                      :direction :input
@@ -84,22 +90,22 @@
 (defun kraken->be (list)
   "map kraken symbols to big ear symbols"
   (let ((bindings '(;; btc
-                    (:+xxbtzusd+ . :xbtusd)
-                    (:+xxbtzeur+ . :xbteur)
-                    (:+xxbtzgbp+ . :xbtgbp)
-                    (:+xxbtzjpy+ . :xbtjpy)
+                    (:+xxbtzusd+ . :btcusd)
+                    (:+xxbtzeur+ . :btceur)
+                    (:+xxbtzgbp+ . :btcgbp)
+                    (:+xxbtzjpy+ . :btcjpy)
                     ;; eth
-                    (:+xethxxbt+ . :ethxbt) ; btc
+                    (:+xethxxbt+ . :ethbtc) ; btc
                     (:+xethzusd+ . :ethusd) 
                     (:+xethzeur+ . :etheur)
                     (:+xethzgbp+ . :ethgbp)
                     (:+xethzjpy+ . :ethjpy)
                     ;; ltc
-                    (:+xltcxxbt+ . :ltcxbt) ; btc
+                    (:+xltcxxbt+ . :ltcbtc) ; btc
                     (:+xltczusd+ . :ltcusd)
                     (:+xltczeur+ . :ltceur)
                     ;; REP
-                    (:+xrepxxbt+ . :repxbt) ; btc
+                    (:+xrepxxbt+ . :repbtc) ; btc
                     (:+xrepzusd+ . :repusd)
                     (:+xrepzeur+ . :repeur))))
     (sublis bindings list)))
@@ -163,7 +169,7 @@
 (defun start ()
   "Start fetching data"
   (loop
-     (let ((ticker-data (ticker (list-to-comma-list +pairs+))))
+     (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+))))
        (mapcar #'(lambda (pair)
                    (save-record-to-file pair ticker-data))
                +pairs+)
