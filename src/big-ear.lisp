@@ -28,10 +28,10 @@
 (defparameter +storage-directory+
   (asdf:system-relative-pathname :big-ear :storage/))
 
-(defun storage-path (pair)
+(defun storage-path (file-name)
   "Returns the full path of the storage file"
   (string-downcase
-   (format nil "~A~A.lisp" +storage-directory+ pair)))
+   (format nil "~A~A.lisp" +storage-directory+ file-name)))
 
 (defun get-pair-stream (pair)
   "Load a file given a pair"
@@ -158,20 +158,19 @@
   "Convert an ordinary list to a comma seprarated list as a string"
   (format nil "~{~A~^,~}" list))
 
-(defun save-record-to-file (pair ticker-data)
+(defun save-record-to-file (ticker-data)
   "Save a record to a file given a pair symbol"
-  (with-open-file (s (storage-path pair)
+  (with-open-file (s (storage-path "db")
                      :direction :output
                      :if-exists :append
                      :if-does-not-exist :create)
-    (format s "~A~%" (rest (assoc pair ticker-data)))))
+    (format s "~A~%" ticker-data)))
 
 (defun start ()
   "Start fetching data"
   (loop
-     (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+))))
-       (mapcar #'(lambda (pair)
-                   (save-record-to-file pair ticker-data))
-               +pairs+)
-       (print (get-unix-time))
+     (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+)))
+           (current-time (get-unix-time)))
+       (save-record-to-file (cons current-time ticker-data))
+       (print current-time)
      (sleep request-pause-in-seconds))))
