@@ -9,7 +9,7 @@
   :author       "Petko Tsikov <tsikov@gmail.com>"
   :serial       t
   :license      ""
-  :depends-on   (#:drakma #:cl-json)
+  :depends-on   (#:drakma #:cl-json #:bordeaux-threads)
   :components   ((:module "src"
                           :components
                           ((:file "big-ear"))))
