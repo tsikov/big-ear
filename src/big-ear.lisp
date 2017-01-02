@@ -166,11 +166,16 @@
                      :if-does-not-exist :create)
     (format s "~A~%" ticker-data)))
 
+(defmacro async (&body body)
+  "Run the given code in a separate thread"
+  `(bt:make-thread #'(lambda () ,@body)))
+
+;; TODO: collect time the request is made & time the request is finnished
 (defun start ()
   "Start fetching data"
   (loop
-     (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+)))
-           (current-time (get-unix-time)))
-       (save-record-to-file (cons current-time ticker-data))
-       (print current-time)
-     (sleep request-pause-in-seconds))))
+     (async (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+)))
+                  (current-time (get-unix-time)))
+              (save-record-to-file (cons current-time ticker-data))))
+     (print (get-unix-time))
+     (sleep request-pause-in-seconds)))
