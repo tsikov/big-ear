@@ -41,7 +41,7 @@
     stream))
 
 (defstruct (ticker (:type list))
-  pair timestamp ask bid last volume volume/24h volume-wa
+  pair ask bid last volume volume/24h volume-wa
   volume-wa/24h n-trades n-trades/24h low low/24h high high/24h open)
 
 (defvar *unix-epoch-difference*
@@ -138,7 +138,6 @@
     (loop for (pair . pair-data) in response
        collect (make-ticker
                 :pair pair
-                :timestamp (get-unix-time)
                 :ask (get-info pair-data :ask)
                 :bid (get-info pair-data :bid)
                 :last (get-info pair-data :last)
@@ -160,7 +159,7 @@
 
 (defun save-record-to-file (ticker-data)
   "Save a record to a file given a pair symbol"
-  (with-open-file (s (storage-path "db")
+  (with-open-file (s (storage-path "db2")
                      :direction :output
                      :if-exists :append
                      :if-does-not-exist :create)
