@@ -3,6 +3,8 @@
   (:nicknames :be)
   (:use #:cl)
   (:export #:start
+           #:stop
+           ;; Sound Waves uses these two because DRY
            #:+request-pause+
            #:storage-path))
 (in-package #:big-ear)
@@ -37,6 +39,14 @@
   "Returns the full path of the storage file"
   (string-downcase
    (format nil "~A~A.lisp" +storage-directory+ file-name)))
+
+(defun lg (message &optional (file-name "requests"))
+  "Log a message to a file"
+  (with-open-file (s (storage-path file-name)
+                     :direction :output
+                     :if-exists :append
+                     :if-does-not-exist :create)
+    (format s "~A~%" message)))
 
 (defstruct (ticker (:type list))
   pair ask bid last volume volume/24h volume-wa
@@ -171,9 +181,6 @@
 ;; TODO: collect time the request is made & time the request is finnished
 ;; this is to study the latency. maybe collect the data in some sort of
 ;; meta data db.
-
-;; TODO: run the loop in a process
-;; TODO: log output to file 
 (defun start ()
   "Start fetching data"
   (setf *requests-loop* (async "Big Ear Ticker Requests Loop"
@@ -181,5 +188,10 @@
        (async "Ticker Request"
          (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+))))
            (save-record-to-file (cons (get-unix-time) ticker-data))))
-       (print (get-unix-time))
+       (lg (get-unix-time))
        (sleep +request-pause+)))))
+
+(defun stop ()
+  "Stop fetching data"
+  (bt:destroy-thread *request-loop*))
+
