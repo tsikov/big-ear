@@ -3,7 +3,8 @@
   (:nicknames :be)
   (:use #:cl)
   (:export #:start
-           #:get-pair-stream))
+           #:+request-pause+
+           #:storage-path))
 (in-package #:big-ear)
 
 ;; make it possible for drakma to get json response as text
@@ -12,8 +13,12 @@
          drakma:*text-content-types*
          :test 'equal)
 
+(defparameter *requests-loop* nil
+  "To be populated by `start`")
+
 (defparameter +uri+ "https://api.kraken.com/0/public/")
-(defparameter request-pause-in-seconds 5)
+(defparameter +request-pause+ 5
+  "Given in seconds")
 (defparameter +kraken-pairs+ '(:xbtusd :xbteur :xbtgbp :xbtjpy ; btc
                                :ethxbt :ethusd :etheur :ethgbp ; eth
                                :ltcxbt :ltcusd :ltceur         ; ltc
@@ -32,13 +37,6 @@
   "Returns the full path of the storage file"
   (string-downcase
    (format nil "~A~A.lisp" +storage-directory+ file-name)))
-
-(defun get-pair-stream (pair)
-  "Load a file given a pair"
-  (with-open-file (stream (storage-path pair)
-                     :direction :input
-                     :if-does-not-exist :error)
-    stream))
 
 (defstruct (ticker (:type list))
   pair ask bid last volume volume/24h volume-wa
@@ -165,16 +163,23 @@
                      :if-does-not-exist :create)
     (format s "~A~%" ticker-data)))
 
-(defmacro async (&body body)
+(defmacro async (thread-name &body body)
   "Run the given code in a separate thread"
-  `(bt:make-thread #'(lambda () ,@body)))
+  `(bt:make-thread #'(lambda () ,@body)
+                   :name ,thread-name))
 
 ;; TODO: collect time the request is made & time the request is finnished
+;; this is to study the latency. maybe collect the data in some sort of
+;; meta data db.
+
+;; TODO: run the loop in a process
+;; TODO: log output to file 
 (defun start ()
   "Start fetching data"
-  (loop
-     (async (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+)))
-                  (current-time (get-unix-time)))
-              (save-record-to-file (cons current-time ticker-data))))
-     (print (get-unix-time))
-     (sleep request-pause-in-seconds)))
+  (setf *requests-loop* (async "Big Ear Ticker Requests Loop"
+    (loop
+       (async "Ticker Request"
+         (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+))))
+           (save-record-to-file (cons (get-unix-time) ticker-data))))
+       (print (get-unix-time))
+       (sleep +request-pause+)))))
