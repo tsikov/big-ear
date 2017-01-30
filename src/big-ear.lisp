@@ -88,7 +88,6 @@
                     (:high          :h second)
                     (:high/24h      :h third)
                     (:open          :b second))))
-
     (destructuring-bind (_ key pos)
         (assoc indicator bindings)
       (declare (ignore _))
@@ -178,6 +177,12 @@
   `(bt:make-thread #'(lambda () ,@body)
                    :name ,thread-name))
 
+(defmacro log-errors (&body body)
+  "If an error is signalled - log it to a file and continue execution
+as if nothing happened."
+  `(handler-case (progn ,@body)
+     (error (e) (format t "ERROR: ~A" e))))
+
 ;; TODO: collect time the request is made & time the request is finnished
 ;; this is to study the latency. maybe collect the data in some sort of
 ;; meta data db.
@@ -186,10 +191,12 @@
   (setf *requests-loop* (async "Big Ear Ticker Requests Loop"
     (loop
        (async "Ticker Request"
-         (let ((ticker-data (ticker (list-to-comma-list +kraken-pairs+))))
-           (save-record-to-file (cons (get-unix-time) ticker-data))))
-       (lg (get-unix-time))
-       (sleep +request-pause+)))))
+         (log-errors
+           (let ((ticker-data
+                  (ticker (list-to-comma-list +kraken-pairs+))))
+             (save-record-to-file (cons (get-unix-time) ticker-data))))
+         (lg (get-unix-time))
+         (sleep +request-pause+))))))
 
 (defun stop ()
   "Stop fetching data"

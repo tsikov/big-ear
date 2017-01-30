@@ -15,6 +15,14 @@
       (is (type-of response) 'cons
           "Can make an API request")))
 
+  (subtest "utils"
+    (subtest "log-errors"
+      ;; if an error is thrown, log it and continue execution.
+      (is-print (be::log-errors
+                 (error "Test error"))
+                "ERROR: Test error"
+                "When an error is thrown, log it and continue execution")))
+      
   (subtest "TICKER"
     (let ((ticker (be::ticker "xbtusd,ethusd")))
       (is (type-of ticker) 'cons
